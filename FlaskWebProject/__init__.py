@@ -17,8 +17,16 @@ app.logger.setLevel(logging.INFO)
 app.logger.info("Application startup")
 
 Session(app)
+
 db = SQLAlchemy(app)
+
 login = LoginManager(app)
 login.login_view = 'login'
 
+# Import models and views
+import FlaskWebProject.models
 import FlaskWebProject.views
+
+# Create database tables automatically
+with app.app_context():
+    db.create_all()
