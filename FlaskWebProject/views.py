@@ -13,7 +13,6 @@ from FlaskWebProject.models import User, Post
 import msal
 import uuid
 
-
 imageSourceUrl = 'https://' + app.config['BLOB_ACCOUNT'] + '.blob.core.windows.net/' + app.config['BLOB_CONTAINER'] + '/'
 
 
@@ -23,6 +22,7 @@ imageSourceUrl = 'https://' + app.config['BLOB_ACCOUNT'] + '.blob.core.windows.n
 def home():
     user = User.query.filter_by(username=current_user.username).first_or_404()
     posts = Post.query.all()
+
     return render_template(
         'index.html',
         title='Home Page',
@@ -33,6 +33,7 @@ def home():
 @app.route('/new_post', methods=['GET', 'POST'])
 @login_required
 def new_post():
+
     form = PostForm(request.form)
 
     if form.validate_on_submit():
@@ -51,6 +52,7 @@ def new_post():
 @app.route('/post/<int:id>', methods=['GET', 'POST'])
 @login_required
 def post(id):
+
     post = Post.query.get(int(id))
     form = PostForm(formdata=request.form, obj=post)
 
@@ -130,7 +132,15 @@ def authorized():
 
         session["user"] = result.get("id_token_claims")
 
+        # Ensure admin user exists
         user = User.query.filter_by(username="admin").first()
+
+        if not user:
+            user = User(username="admin", email="admin@example.com")
+            user.set_password("admin123")
+            db.session.add(user)
+            db.session.commit()
+
         login_user(user)
 
         _save_cache(cache)
@@ -144,13 +154,12 @@ def logout():
     logout_user()
 
     if session.get("user"):
-
         session.clear()
 
         return redirect(
-            Config.AUTHORITY + "/oauth2/v2.0/logout" +
-            "?post_logout_redirect_uri=" +
-            url_for("login", _external=True, _scheme='https')
+            Config.AUTHORITY + "/oauth2/v2.0/logout"
+            + "?post_logout_redirect_uri="
+            + url_for("login", _external=True, _scheme='https')
         )
 
     return redirect(url_for('login'))
