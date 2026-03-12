@@ -13,6 +13,7 @@ from FlaskWebProject.models import User, Post
 import msal
 import uuid
 
+
 imageSourceUrl = 'https://' + app.config['BLOB_ACCOUNT'] + '.blob.core.windows.net/' + app.config['BLOB_CONTAINER'] + '/'
 
 
@@ -33,10 +34,12 @@ def home():
 @login_required
 def new_post():
     form = PostForm(request.form)
+
     if form.validate_on_submit():
         post = Post()
         post.save_changes(form, request.files['image_path'], current_user.id, new=True)
         return redirect(url_for('home'))
+
     return render_template(
         'post.html',
         title='Create Post',
@@ -50,9 +53,11 @@ def new_post():
 def post(id):
     post = Post.query.get(int(id))
     form = PostForm(formdata=request.form, obj=post)
+
     if form.validate_on_submit():
         post.save_changes(form, request.files['image_path'], current_user.id)
         return redirect(url_for('home'))
+
     return render_template(
         'post.html',
         title='Edit Post',
@@ -63,30 +68,35 @@ def post(id):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+
     if current_user.is_authenticated:
         return redirect(url_for('home'))
 
     form = LoginForm()
 
     if form.validate_on_submit():
+
         user = User.query.filter_by(username=form.username.data).first()
 
         if user is None or not user.check_password(form.password.data):
-            app.logger.warning("Invalid login attempt")
             flash('Invalid username or password')
             return redirect(url_for('login'))
 
         login_user(user, remember=form.remember_me.data)
-        app.logger.info("admin logged in successfully")
 
         next_page = request.args.get('next')
+
         if not next_page or url_parse(next_page).netloc != '':
             next_page = url_for('home')
 
         return redirect(next_page)
 
     session["state"] = str(uuid.uuid4())
-    auth_url = _build_auth_url(scopes=Config.SCOPE, state=session["state"])
+
+    auth_url = _build_auth_url(
+        scopes=Config.SCOPE,
+        state=session["state"]
+    )
 
     return render_template(
         'login.html',
@@ -112,7 +122,7 @@ def authorized():
         result = _build_msal_app(cache=cache).acquire_token_by_authorization_code(
             request.args['code'],
             scopes=Config.SCOPE,
-            redirect_uri=url_for("authorized", _external=True)
+            redirect_uri=url_for("authorized", _external=True, _scheme='https')
         )
 
         if "error" in result:
@@ -134,11 +144,13 @@ def logout():
     logout_user()
 
     if session.get("user"):
+
         session.clear()
 
         return redirect(
             Config.AUTHORITY + "/oauth2/v2.0/logout" +
-            "?post_logout_redirect_uri=" + url_for("login", _external=True)
+            "?post_logout_redirect_uri=" +
+            url_for("login", _external=True, _scheme='https')
         )
 
     return redirect(url_for('login'))
@@ -175,5 +187,5 @@ def _build_auth_url(authority=None, scopes=None, state=None):
     return _build_msal_app(authority=authority).get_authorization_request_url(
         scopes,
         state=state,
-        redirect_uri=url_for("authorized", _external=True)
+        redirect_uri=url_for("authorized", _external=True, _scheme='https')
     )
